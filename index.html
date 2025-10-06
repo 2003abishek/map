@@ -1,97 +1,81 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Share Your Location</title>
+    <title>Live Location Map</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial; text-align: center; padding: 20px; background: #f0f2f5; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        button { background: #2575fc; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 25px; cursor: pointer; margin: 20px 0; width: 100%; }
-        .location { background: #e8f4ff; padding: 15px; margin: 15px 0; border-radius: 10px; text-align: left; }
-        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin: 10px 0; }
-        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin: 10px 0; }
-        .links { margin: 20px 0; }
-        .links a { display: block; margin: 10px 0; padding: 10px; background: #2575fc; color: white; text-decoration: none; border-radius: 5px; }
+        body { margin: 0; font-family: Arial; }
+        .header { background: #2575fc; color: white; padding: 20px; text-align: center; }
+        .container { display: flex; height: calc(100vh - 80px); }
+        .sidebar { width: 350px; background: #f8f9fa; padding: 20px; overflow-y: auto; border-right: 1px solid #ddd; }
+        .map-area { flex: 1; padding: 20px; background: #e9ecef; display: flex; align-items: center; justify-content: center; }
+        .location-item { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .device { font-weight: bold; color: #2575fc; margin-bottom: 5px; }
+        .coords { font-family: monospace; font-size: 12px; color: #666; }
+        .time { font-size: 11px; color: #999; margin-top: 5px; }
+        .refresh-btn { background: #2575fc; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-bottom: 15px; }
+        .map-placeholder { background: white; padding: 40px; border-radius: 10px; text-align: center; color: #666; }
     </style>
 </head>
 <body>
+    <div class="header">
+        <h1>🗺️ Live Location Map</h1>
+        <p>Real-time locations from all devices</p>
+    </div>
+    
     <div class="container">
-        <h1>📍 Share Your Location</h1>
-        <p>Click the button below to share your current location. It will be visible on the map view.</p>
-        
-        <button onclick="shareLocation()">📍 Share My Location</button>
-        
-        <div id="status"></div>
-        <div id="locationInfo" style="display: none;"></div>
-        
-        <div class="links">
-            <a href="/map" target="_blank">🗺️ View All Locations Map</a>
-            <a href="/api/locations" target="_blank">📊 View Raw Data</a>
+        <div class="sidebar">
+            <button class="refresh-btn" onclick="loadLocations()">🔄 Refresh Locations</button>
+            <div id="locationsList"></div>
+        </div>
+        <div class="map-area">
+            <div class="map-placeholder">
+                <h3>📍 Location Display</h3>
+                <p>Locations will appear here from the sidebar</p>
+                <p><small>Click "View on Google Maps" to see exact location</small></p>
+            </div>
         </div>
     </div>
 
     <script>
-        async function shareLocation() {
-            const status = document.getElementById('status');
-            status.innerHTML = '<div class="success">🔄 Getting your location...</div>';
+        async function loadLocations() {
+            try {
+                const response = await fetch('/api/locations');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLocations(data.data);
+                }
+            } catch (error) {
+                console.error('Error loading locations:', error);
+                document.getElementById('locationsList').innerHTML = '<div class="location-item">Error loading locations</div>';
+            }
+        }
+
+        function displayLocations(locations) {
+            const list = document.getElementById('locationsList');
             
-            if (!navigator.geolocation) {
-                status.innerHTML = '<div class="error">❌ Geolocation is not supported by your browser</div>';
+            if (locations.length === 0) {
+                list.innerHTML = '<div class="location-item">No locations shared yet</div>';
                 return;
             }
 
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const locationData = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        accuracy: position.coords.accuracy,
-                        timestamp: new Date().toISOString(),
-                        userAgent: navigator.userAgent
-                    };
-
-                    try {
-                        const response = await fetch('/api/locations', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(locationData)
-                        });
-
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            status.innerHTML = '<div class="success">✅ Location shared successfully!</div>';
-                            document.getElementById('locationInfo').innerHTML = `
-                                <div class="location">
-                                    <strong>Your Location:</strong><br>
-                                    📍 ${locationData.latitude.toFixed(6)}, ${locationData.longitude.toFixed(6)}<br>
-                                    🎯 Accuracy: ${Math.round(locationData.accuracy)} meters<br>
-                                    🕒 Time: ${new Date().toLocaleString()}<br>
-                                    <a href="https://maps.google.com?q=${locationData.latitude},${locationData.longitude}" target="_blank">
-                                        View on Google Maps
-                                    </a>
-                                </div>
-                            `;
-                            document.getElementById('locationInfo').style.display = 'block';
-                        } else {
-                            status.innerHTML = `<div class="error">❌ Error: ${result.message}</div>`;
-                        }
-                    } catch (error) {
-                        status.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
-                    }
-                },
-                (error) => {
-                    let message = 'Unknown error occurred';
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED: message = 'Location access denied'; break;
-                        case error.POSITION_UNAVAILABLE: message = 'Location unavailable'; break;
-                        case error.TIMEOUT: message = 'Location request timeout'; break;
-                    }
-                    status.innerHTML = `<div class="error">❌ ${message}</div>`;
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
+            list.innerHTML = locations.map(loc => `
+                <div class="location-item">
+                    <div class="device">📱 ${loc.Device || 'Unknown Device'}</div>
+                    <div class="coords">📍 ${loc.Latitude}, ${loc.Longitude}</div>
+                    <div class="coords">🎯 Accuracy: ${loc.Accuracy || '0'} meters</div>
+                    <div class="time">🕒 ${new Date(loc.Timestamp).toLocaleString()}</div>
+                    <a href="https://maps.google.com?q=${loc.Latitude},${loc.Longitude}" target="_blank" style="color: #2575fc; font-size: 12px;">
+                        View on Google Maps
+                    </a>
+                </div>
+            `).join('');
         }
+
+        // Load immediately and every 15 seconds
+        loadLocations();
+        setInterval(loadLocations, 15000);
     </script>
 </body>
 </html>
