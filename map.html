@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>📍 Live Location Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; }
+        .header { background: #2575fc; color: white; padding: 20px; text-align: center; }
+        .container { display: flex; height: 100vh; }
+        .sidebar { width: 300px; background: #f5f5f5; padding: 20px; overflow-y: auto; }
+        .map { flex: 1; }
+        .location-item { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .device { font-weight: bold; color: #2575fc; }
+        .coordinates { font-family: monospace; font-size: 12px; color: #666; }
+        .time { font-size: 12px; color: #999; }
+        .refresh-btn { background: #2575fc; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📍 Live Location Tracker</h1>
+        <p>Real-time locations from all devices</p>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <button class="refresh-btn" onclick="loadLocations()">🔄 Refresh Locations</button>
+            <div id="locations-list"></div>
+        </div>
+        <div class="map" id="map">
+            <div style="padding: 20px; text-align: center; color: #666;">
+                <h3>Map View</h3>
+                <p>Locations will be displayed here</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadLocations() {
+            try {
+                const response = await fetch('/api/locations');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLocations(data.data);
+                }
+            } catch (error) {
+                console.error('Error loading locations:', error);
+            }
+        }
+
+        function displayLocations(locations) {
+            const list = document.getElementById('locations-list');
+            
+            if (locations.length === 0) {
+                list.innerHTML = '<p>No locations shared yet.</p>';
+                return;
+            }
+
+            list.innerHTML = locations.reverse().map(loc => `
+                <div class="location-item">
+                    <div class="device">📱 ${loc.Device || 'Unknown Device'}</div>
+                    <div class="coordinates">📍 ${loc.Latitude}, ${loc.Longitude}</div>
+                    <div class="coordinates">🎯 Accuracy: ${loc.Accuracy} meters</div>
+                    <div class="time">🕒 ${new Date(loc.Timestamp).toLocaleString()}</div>
+                    <a href="https://maps.google.com?q=${loc.Latitude},${loc.Longitude}" target="_blank" style="color: #2575fc; text-decoration: none;">
+                        View on Google Maps
+                    </a>
+                </div>
+            `).join('');
+        }
+
+        // Load locations every 10 seconds
+        loadLocations();
+        setInterval(loadLocations, 10000);
+    </script>
+</body>
+</html>
